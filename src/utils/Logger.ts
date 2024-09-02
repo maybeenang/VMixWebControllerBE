@@ -3,23 +3,41 @@
 import chalk from "chalk";
 
 export default class Logger {
-  static log(message: string) {
-    console.log(chalk.green(`[LOG] [${new Date().toISOString()}] `, message));
+  static log(message: string, data?: any) {
+    console.log(
+      chalk.green(
+        `[LOG] [${new Date().toTimeString().split(" ")[0]}] `,
+        message
+      ),
+      data ? data : ""
+    );
   }
 
   static error(message: string, error?: Error) {
     console.log(
-      chalk.red(`[ERROR] [${new Date().toISOString()}] `, message, error)
+      chalk.red(
+        `[ERROR] [${new Date().toTimeString().split(" ")[0]}] `,
+        message,
+        error
+      )
     );
   }
 
   static warn(message: string) {
-    console.log(chalk.red(`[WARN] [${new Date().toISOString()}] `, message));
+    console.log(
+      chalk.yellowBright(
+        `[WARN] [${new Date().toTimeString().split(" ")[0]}] `,
+        message
+      )
+    );
   }
 
   static info(message: string, data?: any) {
     console.log(
-      chalk.yellow(`[INFO] [${new Date().toISOString()}] `, message),
+      chalk.yellow(
+        `[INFO] [${new Date().toTimeString().split(" ")[0]}] `,
+        message
+      ),
       data ? data : ""
     );
   }

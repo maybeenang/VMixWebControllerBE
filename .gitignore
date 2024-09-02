@@ -31,3 +31,5 @@ Thumbs.db
 # Ignore sensitive or personal information
 secrets.txt
 config.ini
+
+.env
