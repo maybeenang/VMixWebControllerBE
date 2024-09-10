@@ -4,7 +4,7 @@ import "dotenv/config";
 import { BaseInput } from "vmix-js-utils/dist/types/inputs";
 import { XMLValidator } from "fast-xml-parser";
 import { XmlApi as vMixXmlApi } from "vmix-js-utils";
-import { Socket } from "socket.io";
+import { Server } from "socket.io";
 
 const vMixHost = process.env.VMIX_HOST || "localhost";
 
@@ -17,6 +17,7 @@ export enum GameState {
 
 export class VMIXServer {
   private connection: Connection;
+  private socketServer: Server;
 
   public DRAFTCOUNTDOWN: string;
   public DRAFTCOUNTDOWNTEXT: string;
@@ -24,16 +25,21 @@ export class VMIXServer {
   public INPUTS: BaseInput[];
   public XML: string;
 
+  // create variable for latXMLCall with type DateTime
+  public lastXMLCall: Date;
+
   public gameState: GameState;
 
   public draftData: {
     countdown: number;
   };
 
-  constructor() {
+  constructor(socketServer: Server) {
     this.connection = new Connection(vMixHost, {
       // debug: true,
     });
+
+    this.socketServer = socketServer;
 
     this.DRAFTCOUNTDOWN = process.env.DRAFTCOUNTDOWN || "draft.gtzip";
     this.DRAFTCOUNTDOWNTEXT =
@@ -48,6 +54,11 @@ export class VMIXServer {
     this.draftData = {
       countdown: 0,
     };
+
+    // set latXMLCall to current date
+    this.lastXMLCall = new Date();
+
+    this.init();
   }
 
   init() {
@@ -65,6 +76,9 @@ export class VMIXServer {
 
       // set xml data if valid
       if (XMLValidator.validate(receivedXml) === true) {
+        Logger.log("Sending XML to Socket Server");
+        this.socketServer.emit("xml", receivedXml);
+
         const parsedXml = vMixXmlApi.DataParser.parse(receivedXml);
         const xmlInputs = vMixXmlApi.Inputs.extractInputsFromXML(parsedXml);
         this.INPUTS = vMixXmlApi.Inputs.map(xmlInputs);
@@ -102,8 +116,18 @@ export class VMIXServer {
       if (XMLValidator.validate(data) === true) {
         return;
       }
-
       Logger.info(`Received Data from vMix [${this.gameState}]`, data);
+
+      if (data.includes("FUNCTION")) {
+        Logger.log(`Sending Function from vMix to Client`, data);
+        this.socketServer.emit("function", data);
+
+        // check if lastXMLCall is more than 1 second
+        if (new Date().getTime() - this.lastXMLCall.getTime() > 1000) {
+          this.sendCommand("XML");
+          this.lastXMLCall = new Date();
+        }
+      }
     });
 
     this.connection.on("close", () => {

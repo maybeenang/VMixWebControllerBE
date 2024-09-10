@@ -6,16 +6,16 @@ import { PrismaClient } from "@prisma/client";
 export class SocketIoServer {
   private io: Server;
   private prisma = new PrismaClient();
+  private vMixServer: VMIXServer;
 
-  constructor(private app, private vMixServer: VMIXServer) {
+  constructor(private app) {
     // @ts-ignore
     this.io = new Server(app, {
       cors: {
         origin: "*",
       },
     });
-
-    this.vMixServer.init();
+    this.vMixServer = new VMIXServer(this.io);
   }
 
   disconnectClients(socket: Socket) {
@@ -24,35 +24,28 @@ export class SocketIoServer {
     });
   }
 
-  data(socket: Socket) {
-    this.vMixServer.on("data", (data) => {
-      if (socket.disconnected) {
-        return;
-      }
+  // data(socket: Socket) {
+  //   let isFunction = false;
+  //   this.vMixServer.on("data", (data) => {
+  //     if (socket.disconnected) {
+  //       return;
+  //     }
 
-      if (data.includes("FUNCTION")) {
-        Logger.log(`Sending Function from vMix to Client [${socket.id}]`, data);
-        socket.emit("function", data);
-        this.sendXML(socket);
-      }
-    });
-  }
+  //     if (data.includes("FUNCTION")) {
+  //       isFunction = true;
+  //       Logger.log(`Sending Function from vMix to Client [${socket.id}]`, data);
+  //       socket.emit("function", data);
+  //       // this.sendXML(socket);
+  //     }
+  //   });
+
+  //   console.log("asdsad", isFunction);
+  // }
 
   sendXML(socket: Socket) {
-    if (socket.disconnected) {
-      return;
+    if (!socket.disconnected) {
+      this.vMixServer.sendCommand("XML");
     }
-
-    this.vMixServer.sendCommand("XML");
-
-    this.vMixServer.on("xml", (xml) => {
-      socket.broadcast.emit("xml", this.vMixServer.XML);
-    });
-
-    Logger.info(
-      `Send XML to Client [${socket.id}][${this.vMixServer.gameState}]`,
-      "XML"
-    );
   }
 
   getAllTeams(socket: Socket) {
@@ -88,7 +81,7 @@ export class SocketIoServer {
       this.disconnectClients(socket);
 
       // send all teams to client
-      this.getAllTeams(socket);
+      // this.getAllTeams(socket);
 
       // send initial game state to client
       this.sendXML(socket);
@@ -183,7 +176,7 @@ export class SocketIoServer {
       });
 
       // listen for data from vMix server
-      this.data(socket);
+      // this.data(socket);
     });
 
     this.io.on("error", (error) => {
@@ -198,23 +191,23 @@ export class SocketIoServer {
 
   tick() {
     if (this.vMixServer.gameState === GameState.DRAFT) {
-      // Logger.log(
-      //   `Requesting Draft Data to vMix [${this.vMixServer.gameState}]`
-      // );
-      // this.vMixServer.sendCommand(
-      //   `XMLTEXT vmix/inputs/input[${this.vMixServer.DRAFTCOUNTDOWNINDEX}]/text[@name='${this.vMixServer.DRAFTCOUNTDOWNTEXT}']`
-      // );
-      // this.vMixServer.on("data", (data) => {
-      //   if (data.includes("XMLTEXT")) {
-      //     const [, status, value] = data.split(" ");
-      //     this.vMixServer.draftData.countdown = value;
-      //   }
-      // });
-      // Logger.log(
-      //   `Sending Draft Data to client [${this.vMixServer.gameState}]`,
-      //   this.vMixServer.draftData.countdown
-      // );
-      // this.io.emit("countDownDraft", this.vMixServer.draftData.countdown);
+      Logger.log(
+        `Requesting Draft Data to vMix [${this.vMixServer.gameState}]`
+      );
+      this.vMixServer.sendCommand(
+        `XMLTEXT vmix/inputs/input[${this.vMixServer.DRAFTCOUNTDOWNINDEX}]/text[@name='${this.vMixServer.DRAFTCOUNTDOWNTEXT}']`
+      );
+      this.vMixServer.on("data", (data) => {
+        if (data.includes("XMLTEXT")) {
+          const [, status, value] = data.split(" ");
+          this.vMixServer.draftData.countdown = value;
+        }
+      });
+      Logger.log(
+        `Sending Draft Data to client [${this.vMixServer.gameState}]`,
+        this.vMixServer.draftData.countdown
+      );
+      this.io.emit("countDownDraft", this.vMixServer.draftData.countdown);
     }
   }
 }

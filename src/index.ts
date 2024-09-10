@@ -8,9 +8,7 @@ const PORT = 3000;
 const app = express();
 const server = createServer(app);
 
-const vMixServer = new VMIXServer();
-const socketIoServer = new SocketIoServer(server, vMixServer);
-
+const socketIoServer = new SocketIoServer(server);
 socketIoServer.init();
 
 server.listen(PORT, () => {
